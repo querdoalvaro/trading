@@ -1,0 +1,1794 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>ApexTrader AI - SNR & Trend Auto-Entry System</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0b0e14',
+                        cardBg: '#151924',
+                        cardBorder: '#2a2e3d',
+                        tradeGreen: '#0ecb81',
+                        tradeRed: '#f6465d',
+                        tradeBlue: '#2962ff',
+                        goldAccent: '#f0b90b'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts & Font Awesome Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0e14;
+            color: #d1d4dc;
+            user-select: none;
+            touch-action: manipulation;
+            height: 100vh;
+            height: 100dvh;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #151924;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2a2e3d;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3b4054;
+        }
+        .pulse-green {
+            box-shadow: 0 0 0 0 rgba(14, 203, 129, 0.4);
+            animation: pulseGreen 2s infinite;
+        }
+        @keyframes pulseGreen {
+            0% { box-shadow: 0 0 0 0 rgba(14, 203, 129, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(14, 203, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(14, 203, 129, 0); }
+        }
+        /* Mobile Tab Active Indicator */
+        .mobile-tab-btn.active {
+            color: #0ecb81;
+            border-bottom: 2px solid #0ecb81;
+            background-color: rgba(14, 203, 129, 0.08);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col overflow-hidden bg-darkBg text-gray-200">
+
+    <!-- Top Navigation Bar -->
+    <header class="py-2 px-2.5 sm:px-3 md:h-14 bg-cardBg border-b border-cardBorder flex items-center justify-between gap-1.5 flex-shrink-0 z-20">
+        <div class="flex items-center space-x-1.5 sm:space-x-3">
+            <div class="flex items-center space-x-1">
+                <i class="fa-solid fa-chart-line text-tradeGreen text-base sm:text-xl"></i>
+                <span class="font-bold text-sm sm:text-lg tracking-wide text-white">Apex<span class="text-tradeGreen">Trader</span></span>
+            </div>
+            <!-- Pair Selector -->
+            <div class="relative">
+                <select id="symbolSelect" class="bg-darkBg border border-cardBorder text-white text-xs rounded-lg px-1.5 py-1 focus:outline-none focus:border-tradeBlue cursor-pointer">
+                    <option value="EURUSD" selected>EUR/USD</option>
+                    <option value="XAUUSD">XAU/USD</option>
+                    <option value="BTCUSD">BTC/USD</option>
+                    <option value="GBPUSD">GBP/USD</option>
+                </select>
+            </div>
+            <!-- Timeframe selector -->
+            <div class="flex items-center space-x-0.5 bg-darkBg p-0.5 rounded-lg border border-cardBorder text-[10px] sm:text-xs font-medium">
+                <button class="tf-btn px-1.5 py-0.5 rounded hover:bg-cardBorder transition text-gray-300" data-tf="1m">1m</button>
+                <button class="tf-btn px-1.5 py-0.5 rounded bg-tradeBlue text-white font-semibold" data-tf="5m">5m</button>
+                <button class="tf-btn px-1.5 py-0.5 rounded hover:bg-cardBorder transition text-gray-300" data-tf="15m">15m</button>
+                <button class="tf-btn px-1.5 py-0.5 rounded hover:bg-cardBorder transition text-gray-300" data-tf="1h">1h</button>
+            </div>
+        </div>
+
+        <!-- Right Header Stats & Bot Switch -->
+        <div class="flex items-center space-x-1.5 sm:space-x-2">
+            <!-- Account Equity (Clickable) -->
+            <div id="btnEditBalance" class="text-right cursor-pointer group hover:bg-cardBorder/60 px-1.5 py-0.5 rounded border border-transparent hover:border-cardBorder transition">
+                <div class="text-[8px] sm:text-[10px] text-gray-400 flex items-center justify-end space-x-1">
+                    <span class="hidden xs:inline">Saldo</span>
+                    <i class="fa-solid fa-pen-to-square text-[8px] text-gray-500 group-hover:text-tradeGreen"></i>
+                </div>
+                <div class="text-xs sm:text-sm font-bold text-white group-hover:text-tradeGreen" id="accountBalance">$10,000.00</div>
+            </div>
+            
+            <!-- Broker Live Connection Button -->
+            <button id="btnBrokerSettings" class="bg-darkBg border border-cardBorder hover:border-tradeBlue px-2 py-1 rounded-lg text-xs font-semibold text-white flex items-center space-x-1">
+                <span id="brokerStatusDot" class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
+                <span id="brokerStatusText" class="hidden sm:inline">API</span>
+            </button>
+
+            <!-- Auto-Trading Switch -->
+            <div class="flex items-center bg-darkBg px-1.5 py-1 rounded-lg border border-cardBorder space-x-1">
+                <span id="botStatusDot" class="w-2 h-2 rounded-full bg-red-500"></span>
+                <span class="text-[10px] sm:text-xs font-semibold text-white hidden xs:inline">Bot</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="botToggle" class="sr-only peer">
+                    <div class="w-7 h-3.5 sm:w-9 sm:h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] sm:after:top-[2px] after:left-[1px] sm:after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 sm:after:h-4 sm:after:w-4 after:transition-all peer-checked:bg-tradeGreen"></div>
+                </label>
+            </div>
+
+            <!-- Speed Controls -->
+            <button id="btnSpeed" class="text-xs px-1.5 py-1 bg-darkBg border border-cardBorder hover:bg-cardBorder rounded text-gray-300 flex items-center space-x-1" title="Speed">
+                <i class="fa-solid fa-gauge-high text-tradeBlue text-[10px]"></i>
+                <span id="speedLabel" class="text-[10px]">1x</span>
+            </button>
+
+            <!-- Mobile & Desktop Fullscreen Toggle -->
+            <button id="btnFullscreen" class="text-xs px-1.5 py-1 bg-darkBg border border-cardBorder hover:bg-cardBorder rounded text-gray-300 flex items-center space-x-1" title="Fullscreen Mode">
+                <i id="fullscreenIcon" class="fa-solid fa-expand text-tradeGreen text-[10px]"></i>
+                <span class="hidden sm:inline text-[10px]">Full</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0 w-full">
+        
+        <!-- Left Main Panel: Chart & Technical Metrics -->
+        <div class="flex-1 flex flex-col min-w-0 min-h-0 border-b md:border-b-0 md:border-r border-cardBorder">
+            
+            <!-- Real-Time Metrics Bar -->
+            <div class="bg-cardBg/60 border-b border-cardBorder px-2.5 py-1 flex items-center justify-between text-[10px] sm:text-xs flex-shrink-0">
+                <div class="flex items-center space-x-2 sm:space-x-4">
+                    <div>
+                        <span class="text-gray-400">Harga: </span>
+                        <span id="lastPriceDisplay" class="font-bold text-tradeGreen text-xs">1.08540</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-400">Trend: </span>
+                        <span id="trendDisplay" class="font-semibold text-tradeGreen">UPTREND</span>
+                    </div>
+                    <div class="hidden xs:block">
+                        <span class="text-gray-400">SNR: </span>
+                        <span id="snrDisplay" class="font-semibold text-goldAccent">S: -- | R: --</span>
+                    </div>
+                </div>
+                <div>
+                    <span class="text-gray-400">RSI: <strong id="rsiDisplay" class="text-white">54.2</strong></span>
+                </div>
+            </div>
+
+            <!-- Candlestick Chart Area -->
+            <div class="flex-1 relative bg-darkBg overflow-hidden min-h-[160px]" id="chartContainer">
+                <!-- Floating Chart Overlay Controls -->
+                <div class="absolute top-1.5 left-1.5 z-10 flex gap-1 bg-cardBg/80 backdrop-blur-md p-1 rounded-lg border border-cardBorder text-[9px] sm:text-xs">
+                    <label class="flex items-center space-x-1 cursor-pointer px-1 py-0.5 hover:bg-cardBorder/50 rounded">
+                        <input type="checkbox" id="showSNR" checked class="accent-tradeBlue">
+                        <span>SNR</span>
+                    </label>
+                    <label class="flex items-center space-x-1 cursor-pointer px-1 py-0.5 hover:bg-cardBorder/50 rounded">
+                        <input type="checkbox" id="showEMA" checked class="accent-tradeBlue">
+                        <span>EMA</span>
+                    </label>
+                    <label class="flex items-center space-x-1 cursor-pointer px-1 py-0.5 hover:bg-cardBorder/50 rounded">
+                        <input type="checkbox" id="showSignals" checked class="accent-tradeBlue">
+                        <span>Sinyal</span>
+                    </label>
+                </div>
+
+                <!-- Main Canvas -->
+                <canvas id="mainChart" class="w-full h-full block cursor-crosshair"></canvas>
+            </div>
+
+            <!-- Sub-Chart Area (RSI Indicator) -->
+            <div class="h-14 sm:h-16 border-t border-cardBorder bg-darkBg relative flex flex-col flex-shrink-0">
+                <div class="px-2 py-0.5 bg-cardBg/40 text-[8px] sm:text-[9px] text-gray-400 flex justify-between items-center border-b border-cardBorder/50">
+                    <span class="font-semibold text-gray-300">INDICATOR: RSI (14)</span>
+                    <span class="text-gray-400 text-[8px]">OB: <strong class="text-tradeRed">65</strong> | OS: <strong class="text-tradeGreen">35</strong></span>
+                </div>
+                <div class="flex-1 relative overflow-hidden" id="rsiContainer">
+                    <canvas id="rsiChart" class="w-full h-full block"></canvas>
+                </div>
+            </div>
+
+            <!-- Status Syarat Entry (Compact Live Check below RSI) -->
+            <div class="border-t border-cardBorder bg-cardBg/80 p-2 flex-shrink-0">
+                <div class="text-[10px] font-semibold text-gray-300 uppercase tracking-wider mb-1 flex justify-between items-center">
+                    <span class="flex items-center space-x-1">
+                        <i class="fa-solid fa-clipboard-check text-tradeBlue text-[11px]"></i>
+                        <span>Status Syarat Entry (Live Check)</span>
+                    </span>
+                    <span id="botScanBadge" class="text-[9px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400">Bot OFF</span>
+                </div>
+                <div class="grid grid-cols-3 gap-1.5">
+                    <div class="flex items-center justify-between p-1.5 rounded-md border bg-darkBg border-cardBorder" id="ruleCardSNR">
+                        <div class="flex items-center space-x-1.5 min-w-0">
+                            <i id="ruleIconSNR" class="fa-solid fa-circle-xmark text-tradeRed text-xs flex-shrink-0"></i>
+                            <div class="truncate">
+                                <div class="font-semibold text-gray-200 text-[10px] leading-tight truncate">1. Retest Zona SNR</div>
+                                <div class="text-[9px] text-gray-400 leading-tight truncate">Key Support / Resistance</div>
+                            </div>
+                        </div>
+                        <span id="ruleBadgeSNR" class="px-1.5 py-0.5 text-[9px] rounded bg-red-500/20 text-red-400 font-medium ml-1 flex-shrink-0">Belum</span>
+                    </div>
+
+                    <div class="flex items-center justify-between p-1.5 rounded-md border bg-darkBg border-cardBorder" id="ruleCardTrend">
+                        <div class="flex items-center space-x-1.5 min-w-0">
+                            <i id="ruleIconTrend" class="fa-solid fa-circle-check text-tradeGreen text-xs flex-shrink-0"></i>
+                            <div class="truncate">
+                                <div class="font-semibold text-gray-200 text-[10px] leading-tight truncate">2. Konfirmasi Trend</div>
+                                <div class="text-[9px] text-gray-400 leading-tight truncate">EMA20 vs EMA50</div>
+                            </div>
+                        </div>
+                        <span id="ruleBadgeTrend" class="px-1.5 py-0.5 text-[9px] rounded bg-tradeGreen/20 text-tradeGreen font-medium ml-1 flex-shrink-0">Valid</span>
+                    </div>
+
+                    <div class="flex items-center justify-between p-1.5 rounded-md border bg-darkBg border-cardBorder" id="ruleCardRSI">
+                        <div class="flex items-center space-x-1.5 min-w-0">
+                            <i id="ruleIconRSI" class="fa-solid fa-circle-xmark text-tradeRed text-xs flex-shrink-0"></i>
+                            <div class="truncate">
+                                <div class="font-semibold text-gray-200 text-[10px] leading-tight truncate">3. Momentum RSI</div>
+                                <div class="text-[9px] text-gray-400 leading-tight truncate">Oversold / Overbought</div>
+                            </div>
+                        </div>
+                        <span id="ruleBadgeRSI" class="px-1.5 py-0.5 text-[9px] rounded bg-red-500/20 text-red-400 font-medium ml-1 flex-shrink-0">Belum</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Tabbed Bottom Container & Desktop Sidebar -->
+        <div class="w-full md:w-80 lg:w-96 bg-cardBg flex flex-col flex-shrink-0 h-[220px] sm:h-[260px] md:h-full border-t md:border-t-0 border-cardBorder">
+            
+            <!-- Mobile Navigation Tab Bar (Hidden on Desktop) -->
+            <div class="flex items-center justify-around bg-darkBg border-b border-cardBorder text-[11px] font-semibold text-gray-400 flex-shrink-0 md:hidden">
+                <button class="mobile-tab-btn active flex-1 py-2 text-center transition flex items-center justify-center space-x-1" data-tab="tab-rules">
+                    <i class="fa-solid fa-clipboard-check"></i>
+                    <span>Syarat</span>
+                </button>
+                <button class="mobile-tab-btn flex-1 py-2 text-center transition flex items-center justify-center space-x-1" data-tab="tab-config">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>Setting</span>
+                </button>
+                <button class="mobile-tab-btn flex-1 py-2 text-center transition flex items-center justify-center space-x-1" data-tab="tab-trades">
+                    <i class="fa-solid fa-briefcase"></i>
+                    <span id="mobilePosTabLabel">Posisi (0)</span>
+                </button>
+                <button class="mobile-tab-btn flex-1 py-2 text-center transition flex items-center justify-center space-x-1" data-tab="tab-logs">
+                    <i class="fa-solid fa-terminal"></i>
+                    <span>Logs</span>
+                </button>
+            </div>
+
+            <!-- Tab Contents Wrapper -->
+            <div class="flex-1 overflow-y-auto p-2.5 sm:p-3 space-y-3">
+                
+                <!-- Tab 1: Syarat Entry Check -->
+                <div id="tab-rules" class="mobile-tab-content space-y-2 md:hidden">
+                    <div class="text-[10px] font-semibold text-gray-300 uppercase tracking-wider flex justify-between items-center">
+                        <span>Live Logic Validation</span>
+                        <span id="mobileBotScanBadge" class="text-[9px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400">Bot OFF</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-1.5 text-xs">
+                        <div class="flex items-center justify-between p-2 rounded-md border bg-darkBg border-cardBorder">
+                            <div class="flex items-center space-x-2">
+                                <i id="mobileRuleIconSNR" class="fa-solid fa-circle-xmark text-tradeRed text-sm"></i>
+                                <div>
+                                    <div class="font-semibold text-gray-200 text-[11px]">1. Retest Zona SNR</div>
+                                    <div class="text-[9px] text-gray-400">Harga menyentuh Key Support / Resistance</div>
+                                </div>
+                            </div>
+                            <span id="mobileRuleBadgeSNR" class="px-2 py-0.5 text-[9px] rounded bg-red-500/20 text-red-400 font-medium">Belum</span>
+                        </div>
+
+                        <div class="flex items-center justify-between p-2 rounded-md border bg-darkBg border-cardBorder">
+                            <div class="flex items-center space-x-2">
+                                <i id="mobileRuleIconTrend" class="fa-solid fa-circle-check text-tradeGreen text-sm"></i>
+                                <div>
+                                    <div class="font-semibold text-gray-200 text-[11px]">2. Konfirmasi Trend (EMA)</div>
+                                    <div class="text-[9px] text-gray-400">EMA20 searah EMA50</div>
+                                </div>
+                            </div>
+                            <span id="mobileRuleBadgeTrend" class="px-2 py-0.5 text-[9px] rounded bg-tradeGreen/20 text-tradeGreen font-medium">Valid</span>
+                        </div>
+
+                        <div class="flex items-center justify-between p-2 rounded-md border bg-darkBg border-cardBorder">
+                            <div class="flex items-center space-x-2">
+                                <i id="mobileRuleIconRSI" class="fa-solid fa-circle-xmark text-tradeRed text-sm"></i>
+                                <div>
+                                    <div class="font-semibold text-gray-200 text-[11px]">3. Momentum RSI</div>
+                                    <div class="text-[9px] text-gray-400">Area Oversold / Overbought</div>
+                                </div>
+                            </div>
+                            <span id="mobileRuleBadgeRSI" class="px-2 py-0.5 text-[9px] rounded bg-red-500/20 text-red-400 font-medium">Belum</span>
+                        </div>
+                    </div>
+
+                    <!-- Quick Manual Entry Buttons for Mobile -->
+                    <div class="grid grid-cols-2 gap-2 pt-1">
+                        <button id="btnMobileBuy" class="bg-tradeGreen/20 hover:bg-tradeGreen/30 text-tradeGreen border border-tradeGreen/40 font-semibold py-1.5 rounded-lg text-xs transition flex items-center justify-center space-x-1">
+                            <i class="fa-solid fa-arrow-trend-up"></i>
+                            <span>Manual BUY</span>
+                        </button>
+                        <button id="btnMobileSell" class="bg-tradeRed/20 hover:bg-tradeRed/30 text-tradeRed border border-tradeRed/40 font-semibold py-1.5 rounded-lg text-xs transition flex items-center justify-center space-x-1">
+                            <i class="fa-solid fa-arrow-trend-down"></i>
+                            <span>Manual SELL</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tab 2 / Sidebar Section: Config & Risk -->
+                <div id="tab-config" class="mobile-tab-content hidden md:block space-y-2.5">
+                    <div class="text-[11px] font-semibold text-gray-300 uppercase tracking-wider flex justify-between items-center">
+                        <span>Risk &amp; Execution Setting</span>
+                        <span class="text-[9px] text-goldAccent bg-goldAccent/10 px-1.5 py-0.5 rounded border border-goldAccent/30">Auto-SNR</span>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-[10px] text-gray-400 mb-1">Mode Target SL &amp; TP</label>
+                        <select id="slTpModeSelect" class="w-full bg-darkBg border border-cardBorder text-white text-xs rounded px-2 py-1.5 focus:outline-none focus:border-tradeBlue">
+                            <option value="AUTO_SNR" selected>⚡ Auto Dynamic SNR (RRR 1:2)</option>
+                            <option value="FIXED">Manual Fixed Pips</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                            <label class="block text-gray-400 text-[10px] mb-1">Lot / Size</label>
+                            <input type="number" id="inputLot" value="0.10" step="0.01" class="w-full bg-darkBg border border-cardBorder rounded px-2 py-1 text-white focus:outline-none focus:border-tradeBlue">
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-[10px] mb-1">Risk per Trade (%)</label>
+                            <input type="number" id="inputRisk" value="1.5" step="0.5" class="w-full bg-darkBg border border-cardBorder rounded px-2 py-1 text-white focus:outline-none focus:border-tradeBlue">
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-[10px] mb-1">Stop Loss (Pips)</label>
+                            <input type="number" id="inputSL" value="25" class="w-full bg-darkBg border border-cardBorder rounded px-2 py-1 text-white focus:outline-none focus:border-tradeBlue">
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-[10px] mb-1">Take Profit (Pips)</label>
+                            <input type="number" id="inputTP" value="50" class="w-full bg-darkBg border border-cardBorder rounded px-2 py-1 text-white focus:outline-none focus:border-tradeBlue">
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-2 pt-0.5">
+                        <input type="checkbox" id="autoTrailingStop" checked class="accent-tradeBlue rounded cursor-pointer">
+                        <label for="autoTrailingStop" class="text-[11px] text-gray-300 cursor-pointer">Auto Trailing Stop (+15 Pips)</label>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] text-gray-400 mb-1">Sensitivitas Bot Auto-Entry</label>
+                        <select id="botSensitivity" class="w-full bg-darkBg border border-cardBorder text-white text-xs rounded px-2 py-1.5 focus:outline-none focus:border-tradeBlue">
+                            <option value="TIGHT">Strict / Ketat (Akurasi Tinggi)</option>
+                            <option value="BALANCED" selected>Balanced / Seimbang (Rekomendasi)</option>
+                            <option value="AGGRESSIVE">Aggressive / Cepat (Uji Coba)</option>
+                        </select>
+                    </div>
+
+                    <button id="btnSimulateSetup" class="w-full py-1.5 bg-tradeBlue/20 hover:bg-tradeBlue/30 text-tradeBlue border border-tradeBlue/40 font-semibold rounded-lg text-xs transition flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-robot"></i>
+                        <span>Simulasi Setup Valid (Paksa Entry)</span>
+                    </button>
+
+                    <div>
+                        <label class="block text-[10px] text-gray-400 mb-1">Mode Broker API</label>
+                        <select id="executionModeSelect" class="w-full bg-darkBg border border-cardBorder text-white text-xs rounded px-2 py-1.5 focus:outline-none focus:border-tradeBlue">
+                            <option value="SIMULATOR">Simulator Internal</option>
+                            <option value="BINANCE">Binance API</option>
+                            <option value="DERIV">Deriv API</option>
+                            <option value="WEBHOOK">MetaTrader Webhook</option>
+                        </select>
+                    </div>
+
+                    <div class="hidden md:grid grid-cols-2 gap-2 pt-1">
+                        <button id="btnManualBuy" class="bg-tradeGreen/20 hover:bg-tradeGreen/30 text-tradeGreen border border-tradeGreen/40 font-semibold py-1.5 rounded-lg text-xs transition flex items-center justify-center space-x-1">
+                            <i class="fa-solid fa-arrow-trend-up"></i>
+                            <span>Manual BUY</span>
+                        </button>
+                        <button id="btnManualSell" class="bg-tradeRed/20 hover:bg-tradeRed/30 text-tradeRed border border-tradeRed/40 font-semibold py-1.5 rounded-lg text-xs transition flex items-center justify-center space-x-1">
+                            <i class="fa-solid fa-arrow-trend-down"></i>
+                            <span>Manual SELL</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tab 3 / Active Positions -->
+                <div id="tab-trades" class="mobile-tab-content hidden md:block space-y-2">
+                    <div class="flex items-center justify-between mb-1">
+                        <h4 class="font-bold text-white text-xs uppercase tracking-wider">Posisi Aktif</h4>
+                        <span id="activeTradesCount" class="text-[10px] bg-cardBorder px-2 py-0.5 rounded text-gray-300">0 Trades</span>
+                    </div>
+
+                    <div class="min-h-[100px] overflow-y-auto space-y-2 pr-1" id="positionsList">
+                        <div class="text-center py-6 text-gray-500 text-xs italic" id="noPositionsMsg">
+                            Belum ada posisi terbuka.<br>Aktifkan Auto Bot atau klik Manual Buy/Sell.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 4 / Execution Logs -->
+                <div id="tab-logs" class="mobile-tab-content hidden md:block space-y-1.5">
+                    <div class="text-[10px] font-semibold text-gray-400 flex items-center justify-between">
+                        <span>Log Eksekusi Signal Bot</span>
+                        <button id="btnClearLogs" class="text-gray-500 hover:text-gray-300 text-[9px]">Bersihkan</button>
+                    </div>
+                    <div id="executionLogs" class="h-32 md:h-28 overflow-y-auto bg-darkBg border border-cardBorder/60 rounded p-2 text-[10px] font-mono space-y-1 text-gray-400">
+                        <div class="text-gray-500">[System] ApexTrader Engine Siap. Menunggu setup SNR &amp; Trend...</div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Broker API Settings Modal -->
+    <div id="brokerModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-cardBg border border-cardBorder rounded-xl w-full max-w-lg p-5 sm:p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button id="btnCloseModal" class="absolute top-4 right-4 text-gray-400 hover:text-white text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="flex items-center space-x-3 mb-4 border-b border-cardBorder pb-3">
+                <div class="w-10 h-10 rounded-lg bg-tradeBlue/20 text-tradeBlue flex items-center justify-center text-xl flex-shrink-0">
+                    <i class="fa-solid fa-plug-circle-bolt"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-white text-sm sm:text-base">Integrasi API Broker Live</h3>
+                    <p class="text-xs text-gray-400">Hubungkan data real-time market stream &amp; eksekusi order otomatis ke akun broker Anda.</p>
+                </div>
+            </div>
+
+            <div id="modalStatusAlert" class="hidden p-2.5 mb-3 rounded-lg text-xs font-semibold"></div>
+
+            <div class="space-y-4 text-xs">
+                <div>
+                    <label class="block text-gray-300 font-semibold mb-1">Pilih Broker / Provider API</label>
+                    <select id="modalBrokerType" class="w-full bg-darkBg border border-cardBorder text-white rounded-lg px-3 py-2 focus:outline-none focus:border-tradeBlue">
+                        <option value="SIMULATOR">Paper Trading / Simulator Internal</option>
+                        <option value="WEBHOOK" selected>Finex &amp; MetaTrader MT4/MT5 (Webhook Bridge)</option>
+                        <option value="BINANCE">Binance Crypto (WebSocket Market &amp; API)</option>
+                        <option value="DERIV">Deriv API (Forex &amp; Synthetics Tick Stream)</option>
+                    </select>
+                </div>
+
+                <!-- Binance Fields -->
+                <div id="fieldsBinance" class="hidden space-y-3 bg-darkBg/60 p-3 rounded-lg border border-cardBorder">
+                    <div>
+                        <label class="block text-gray-400 mb-1">API Key Binance</label>
+                        <input type="text" id="binanceApiKey" placeholder="sk-..." class="w-full bg-darkBg border border-cardBorder rounded px-2.5 py-1.5 text-white font-mono text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 mb-1">Secret Key Binance</label>
+                        <input type="password" id="binanceApiSecret" placeholder="••••••••••••" class="w-full bg-darkBg border border-cardBorder rounded px-2.5 py-1.5 text-white font-mono text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 mb-1">Environment</label>
+                        <select id="binanceEnv" class="w-full bg-darkBg border border-cardBorder text-white rounded px-2.5 py-1.5">
+                            <option value="spot">Binance Spot Mainnet</option>
+                            <option value="futures">Binance USD-M Futures</option>
+                            <option value="testnet">Binance Testnet (Demo)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Deriv Fields -->
+                <div id="fieldsDeriv" class="hidden space-y-3 bg-darkBg/60 p-3 rounded-lg border border-cardBorder">
+                    <div>
+                        <label class="block text-gray-400 mb-1">Deriv App ID</label>
+                        <input type="text" id="derivAppId" value="1089" class="w-full bg-darkBg border border-cardBorder rounded px-2.5 py-1.5 text-white font-mono text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 mb-1">Deriv API Token (Demo / Live)</label>
+                        <input type="password" id="derivToken" placeholder="Token API Deriv Anda" class="w-full bg-darkBg border border-cardBorder rounded px-2.5 py-1.5 text-white font-mono text-xs">
+                    </div>
+                </div>
+
+                <!-- Webhook Fields -->
+                <div id="fieldsWebhook" class="space-y-3 bg-darkBg/60 p-3 rounded-lg border border-cardBorder">
+                    <div>
+                        <label class="block text-gray-400 mb-1">URL Endpoint Webhook MT4/MT5 Finex EA</label>
+                        <input type="text" id="webhookUrl" placeholder="https://your-finexea-bridge.com/api/trade" class="w-full bg-darkBg border border-cardBorder rounded px-2.5 py-1.5 text-white font-mono text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 mb-1">Auth Secret / Token Finex (Opsional)</label>
+                        <input type="password" id="webhookSecret" placeholder="Secret Token" class="w-full bg-darkBg border border-cardBorder rounded px-2.5 py-1.5 text-white font-mono text-xs">
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end space-x-2 pt-2 border-t border-cardBorder">
+                    <button id="btnDisconnectBroker" class="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 font-semibold rounded-lg transition">Putuskan Koneksi</button>
+                    <button id="btnConnectBroker" class="px-4 py-1.5 bg-tradeBlue hover:bg-blue-600 text-white font-semibold rounded-lg transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-link"></i>
+                        <span>Hubungkan API</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Balance Edit & Top-Up Modal -->
+    <div id="balanceModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-cardBg border border-cardBorder rounded-xl w-full max-w-sm p-5 shadow-2xl relative">
+            <button id="btnCloseBalanceModal" class="absolute top-4 right-4 text-gray-400 hover:text-white text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="flex items-center space-x-3 mb-4 border-b border-cardBorder pb-3">
+                <div class="w-10 h-10 rounded-lg bg-tradeGreen/20 text-tradeGreen flex items-center justify-center text-xl flex-shrink-0">
+                    <i class="fa-solid fa-wallet"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-white text-sm sm:text-base">Pengaturan Saldo Simulasi</h3>
+                    <p class="text-xs text-gray-400">Atur modal atau isi ulang (top-up) saldo akun simulasi Anda.</p>
+                </div>
+            </div>
+
+            <div class="space-y-4 text-xs">
+                <div>
+                    <label class="block text-gray-300 font-semibold mb-1.5">Preset Saldo Cepat</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button class="btn-preset-bal py-1.5 bg-darkBg border border-cardBorder hover:border-tradeGreen hover:text-tradeGreen text-gray-300 rounded font-semibold transition" data-amount="1000">$1,000</button>
+                        <button class="btn-preset-bal py-1.5 bg-darkBg border border-cardBorder hover:border-tradeGreen hover:text-tradeGreen text-gray-300 rounded font-semibold transition" data-amount="5000">$5,000</button>
+                        <button class="btn-preset-bal py-1.5 bg-darkBg border border-cardBorder hover:border-tradeGreen hover:text-tradeGreen text-gray-300 rounded font-semibold transition" data-amount="10000">$10,000</button>
+                        <button class="btn-preset-bal py-1.5 bg-darkBg border border-cardBorder hover:border-tradeGreen hover:text-tradeGreen text-gray-300 rounded font-semibold transition" data-amount="25000">$25,000</button>
+                        <button class="btn-preset-bal py-1.5 bg-darkBg border border-cardBorder hover:border-tradeGreen hover:text-tradeGreen text-gray-300 rounded font-semibold transition" data-amount="50000">$50,000</button>
+                        <button class="btn-preset-bal py-1.5 bg-darkBg border border-cardBorder hover:border-tradeGreen hover:text-tradeGreen text-gray-300 rounded font-semibold transition" data-amount="100000">$100,000</button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-gray-300 font-semibold mb-1">Nominal Custom ($ USD)</label>
+                    <input type="number" id="inputCustomBalance" placeholder="10000" min="1" step="100" class="w-full bg-darkBg border border-cardBorder rounded px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-tradeGreen">
+                </div>
+
+                <div class="flex items-center justify-end space-x-2 pt-2 border-t border-cardBorder">
+                    <button id="btnCancelBalance" class="px-3.5 py-1.5 bg-darkBg hover:bg-cardBorder text-gray-300 rounded-lg font-medium transition">Batal</button>
+                    <button id="btnSaveBalance" class="px-4 py-1.5 bg-tradeGreen hover:bg-emerald-600 text-white font-semibold rounded-lg transition flex items-center space-x-1">
+                        <i class="fa-solid fa-check"></i>
+                        <span>Simpan Saldo</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global State & Simulation Variables
+        let currentSymbol = 'EURUSD';
+        let timeframe = '5m';
+        let simulationSpeed = 1;
+        let isBotActive = false;
+        let accountBalance = 10000.00;
+        let activeBroker = 'SIMULATOR';
+        let isLiveStreamActive = false;
+        let binanceWs = null;
+        let derivWs = null;
+        let tickIntervalTimer = null;
+        let brokerCredentials = {
+            binance: { apiKey: '', apiSecret: '', env: 'spot' },
+            deriv: { appId: '1089', token: '' },
+            webhook: { url: '', secret: '' }
+        };
+
+        // Price data structures
+        let candles = [];
+        let maxCandles = 90;
+        let basePrice = 1.0850;
+        let pipScale = 0.0001;
+
+        // Active Positions & Visual Signal Markers
+        let activePositions = [];
+        let executedSignals = [];
+
+        // Technical Indicator States
+        let ema20 = [];
+        let ema50 = [];
+        let rsiValues = [];
+        let supportLevels = [];
+        let resistanceLevels = [];
+        let currentTrend = 'UPTREND';
+
+        // Entry Logic Evaluation Rules
+        let ruleSNRValid = false;
+        let ruleTrendValid = false;
+        let ruleRSIValid = false;
+        let currentSignalType = null;
+        let lastScanLogTime = 0;
+
+        // Canvas context handles
+        let mainCanvas = null;
+        let mainCtx = null;
+        let rsiCanvas = null;
+        let rsiCtx = null;
+
+        function playTradeBeep(type = 'BUY') {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(type === 'BUY' ? 587.33 : 349.23, ctx.currentTime);
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.3);
+            } catch (e) { /* audio fallback */ }
+        }
+
+        function logMessage(msg, colorClass = 'text-gray-400') {
+            const logsContainer = document.getElementById('executionLogs');
+            if (!logsContainer) return;
+            const timeStr = new Date().toLocaleTimeString();
+            const logItem = document.createElement('div');
+            logItem.className = colorClass;
+            logItem.innerText = `[${timeStr}] ${msg}`;
+            logsContainer.appendChild(logItem);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+
+        function updateBrokerUIStatus(connected, text) {
+            const dot = document.getElementById('brokerStatusDot');
+            const label = document.getElementById('brokerStatusText');
+            if (dot) dot.className = connected ? 'w-2 h-2 rounded-full bg-tradeGreen pulse-green' : 'w-2 h-2 rounded-full bg-yellow-500 animate-pulse';
+            if (label) label.innerText = text;
+        }
+
+        window.resizeCanvases = function() {
+            const chartContainer = document.getElementById('chartContainer');
+            const rsiContainer = document.getElementById('rsiContainer');
+
+            if (chartContainer && mainCanvas) {
+                const rect = chartContainer.getBoundingClientRect();
+                mainCanvas.width = rect.width;
+                mainCanvas.height = rect.height;
+            }
+            if (rsiContainer && rsiCanvas) {
+                const rect = rsiContainer.getBoundingClientRect();
+                rsiCanvas.width = rect.width;
+                rsiCanvas.height = rect.height;
+            }
+
+            drawMainChart();
+            drawRSIChart();
+        }
+
+        function drawMainChart() {
+            if (!mainCtx || !mainCanvas || candles.length === 0) return;
+            const width = mainCanvas.width;
+            const height = mainCanvas.height;
+
+            mainCtx.clearRect(0, 0, width, height);
+
+            let minPrice = Math.min(...candles.map(c => c.low));
+            let maxPrice = Math.max(...candles.map(c => c.high));
+
+            // Include SNR levels in scale calculation
+            if (supportLevels.length > 0) minPrice = Math.min(minPrice, ...supportLevels);
+            if (resistanceLevels.length > 0) maxPrice = Math.max(maxPrice, ...resistanceLevels);
+
+            const padding = (maxPrice - minPrice) * 0.08 || 0.001;
+            minPrice -= padding;
+            maxPrice += padding;
+
+            const getY = (price) => height - ((price - minPrice) / (maxPrice - minPrice)) * height;
+            const candleWidth = Math.max(2, (width / candles.length) * 0.65);
+            const candleGap = width / candles.length;
+
+            // 1. Draw Grid Lines
+            mainCtx.strokeStyle = '#1e2330';
+            mainCtx.lineWidth = 1;
+            for (let i = 1; i <= 4; i++) {
+                const y = (height / 5) * i;
+                mainCtx.beginPath();
+                mainCtx.moveTo(0, y);
+                mainCtx.lineTo(width, y);
+                mainCtx.stroke();
+            }
+
+            // 2. Draw SNR Overlay Zones
+            const showSNR = document.getElementById('showSNR')?.checked;
+            if (showSNR) {
+                if (resistanceLevels.length > 0) {
+                    const topR = Math.max(...resistanceLevels);
+                    const botR = Math.min(...resistanceLevels);
+                    const y1 = getY(topR);
+                    const y2 = getY(botR);
+                    mainCtx.fillStyle = 'rgba(246, 70, 93, 0.12)';
+                    mainCtx.fillRect(0, Math.min(y1, y2), width, Math.abs(y2 - y1) || 12);
+                    mainCtx.strokeStyle = 'rgba(246, 70, 93, 0.4)';
+                    mainCtx.strokeRect(0, Math.min(y1, y2), width, Math.abs(y2 - y1) || 12);
+                }
+                if (supportLevels.length > 0) {
+                    const topS = Math.max(...supportLevels);
+                    const botS = Math.min(...supportLevels);
+                    const y1 = getY(topS);
+                    const y2 = getY(botS);
+                    mainCtx.fillStyle = 'rgba(14, 203, 129, 0.12)';
+                    mainCtx.fillRect(0, Math.min(y1, y2), width, Math.abs(y2 - y1) || 12);
+                    mainCtx.strokeStyle = 'rgba(14, 203, 129, 0.4)';
+                    mainCtx.strokeRect(0, Math.min(y1, y2), width, Math.abs(y2 - y1) || 12);
+                }
+            }
+
+            // 3. Draw Candlesticks
+            candles.forEach((c, i) => {
+                const x = i * candleGap + candleGap / 2;
+                const openY = getY(c.open);
+                const closeY = getY(c.close);
+                const highY = getY(c.high);
+                const lowY = getY(c.low);
+
+                const isBull = c.close >= c.open;
+                const color = isBull ? '#0ecb81' : '#f6465d';
+
+                // Wick
+                mainCtx.strokeStyle = color;
+                mainCtx.lineWidth = 1.2;
+                mainCtx.beginPath();
+                mainCtx.moveTo(x, highY);
+                mainCtx.lineTo(x, lowY);
+                mainCtx.stroke();
+
+                // Body
+                mainCtx.fillStyle = color;
+                const bodyY = Math.min(openY, closeY);
+                const bodyH = Math.max(1, Math.abs(closeY - openY));
+                mainCtx.fillRect(x - candleWidth / 2, bodyY, candleWidth, bodyH);
+            });
+
+            // 4. Draw EMA Lines
+            const showEMA = document.getElementById('showEMA')?.checked;
+            if (showEMA && ema20.length === candles.length && ema50.length === candles.length) {
+                // EMA 20 (Yellow)
+                mainCtx.strokeStyle = '#f0b90b';
+                mainCtx.lineWidth = 1.5;
+                mainCtx.beginPath();
+                ema20.forEach((val, i) => {
+                    const x = i * candleGap + candleGap / 2;
+                    const y = getY(val);
+                    if (i === 0) mainCtx.moveTo(x, y);
+                    else mainCtx.lineTo(x, y);
+                });
+                mainCtx.stroke();
+
+                // EMA 50 (Blue)
+                mainCtx.strokeStyle = '#2962ff';
+                mainCtx.lineWidth = 1.5;
+                mainCtx.beginPath();
+                ema50.forEach((val, i) => {
+                    const x = i * candleGap + candleGap / 2;
+                    const y = getY(val);
+                    if (i === 0) mainCtx.moveTo(x, y);
+                    else mainCtx.lineTo(x, y);
+                });
+                mainCtx.stroke();
+            }
+
+            // 5. Draw Active Trade TP & SL Lines
+            activePositions.forEach(trade => {
+                if (trade.symbol === currentSymbol) {
+                    const tpY = getY(trade.tp);
+                    const slY = getY(trade.sl);
+                    const entryY = getY(trade.entryPrice);
+
+                    // Entry Line
+                    mainCtx.setLineDash([3, 3]);
+                    mainCtx.strokeStyle = '#2962ff';
+                    mainCtx.beginPath();
+                    mainCtx.moveTo(0, entryY);
+                    mainCtx.lineTo(width, entryY);
+                    mainCtx.stroke();
+
+                    // TP Line
+                    mainCtx.strokeStyle = '#0ecb81';
+                    mainCtx.beginPath();
+                    mainCtx.moveTo(0, tpY);
+                    mainCtx.lineTo(width, tpY);
+                    mainCtx.stroke();
+
+                    // SL Line
+                    mainCtx.strokeStyle = '#f6465d';
+                    mainCtx.beginPath();
+                    mainCtx.moveTo(0, slY);
+                    mainCtx.lineTo(width, slY);
+                    mainCtx.stroke();
+                    mainCtx.setLineDash([]);
+                }
+            });
+
+            // 6. Draw Signal Arrows
+            const showSignals = document.getElementById('showSignals')?.checked;
+            if (showSignals) {
+                executedSignals.forEach(sig => {
+                    if (sig.index < candles.length) {
+                        const x = sig.index * candleGap + candleGap / 2;
+                        const c = candles[sig.index];
+                        if (sig.type === 'BUY') {
+                            const y = getY(c.low) + 14;
+                            mainCtx.fillStyle = '#0ecb81';
+                            mainCtx.beginPath();
+                            mainCtx.moveTo(x, y - 6);
+                            mainCtx.lineTo(x - 5, y + 4);
+                            mainCtx.lineTo(x + 5, y + 4);
+                            mainCtx.fill();
+                        } else {
+                            const y = getY(c.high) - 14;
+                            mainCtx.fillStyle = '#f6465d';
+                            mainCtx.beginPath();
+                            mainCtx.moveTo(x, y + 6);
+                            mainCtx.lineTo(x - 5, y - 4);
+                            mainCtx.lineTo(x + 5, y - 4);
+                            mainCtx.fill();
+                        }
+                    }
+                });
+            }
+        }
+
+        function drawRSIChart() {
+            if (!rsiCtx || !rsiCanvas || rsiValues.length === 0) return;
+            const width = rsiCanvas.width;
+            const height = rsiCanvas.height;
+
+            rsiCtx.clearRect(0, 0, width, height);
+
+            // Added vertical padding to prevent top/bottom lines from crowding each other
+            const padTop = 4;
+            const padBot = 4;
+            const usableH = Math.max(10, height - padTop - padBot);
+
+            const getY = (rsi) => padTop + usableH - (rsi / 100) * usableH;
+            const candleGap = width / rsiValues.length;
+
+            // OB (65) & OS (35) level lines
+            const obY = getY(65);
+            const osY = getY(35);
+
+            // Draw neutral zone background shadow between 35 and 65
+            rsiCtx.fillStyle = 'rgba(41, 98, 255, 0.04)';
+            rsiCtx.fillRect(0, obY, width, Math.max(1, osY - obY));
+
+            // OB Line (Red Tint)
+            rsiCtx.strokeStyle = 'rgba(246, 70, 93, 0.5)';
+            rsiCtx.lineWidth = 1;
+            rsiCtx.setLineDash([3, 3]);
+            rsiCtx.beginPath();
+            rsiCtx.moveTo(0, obY);
+            rsiCtx.lineTo(width, obY);
+            rsiCtx.stroke();
+
+            // OS Line (Green Tint)
+            rsiCtx.strokeStyle = 'rgba(14, 203, 129, 0.5)';
+            rsiCtx.beginPath();
+            rsiCtx.moveTo(0, osY);
+            rsiCtx.lineTo(width, osY);
+            rsiCtx.stroke();
+            rsiCtx.setLineDash([]);
+
+            // Draw RSI curve
+            rsiCtx.strokeStyle = '#f0b90b';
+            rsiCtx.lineWidth = 1.5;
+            rsiCtx.beginPath();
+            rsiValues.forEach((rsi, i) => {
+                const x = i * candleGap + candleGap / 2;
+                const y = getY(rsi);
+                if (i === 0) rsiCtx.moveTo(x, y);
+                else rsiCtx.lineTo(x, y);
+            });
+            rsiCtx.stroke();
+        }
+
+        function generateInitialCandles() {
+            candles = [];
+            if (currentSymbol === 'EURUSD') { basePrice = 1.0850; pipScale = 0.0001; }
+            else if (currentSymbol === 'XAUUSD') { basePrice = 2350.00; pipScale = 0.1; }
+            else if (currentSymbol === 'BTCUSD') { basePrice = 64500.00; pipScale = 1.0; }
+            else if (currentSymbol === 'GBPUSD') { basePrice = 1.2750; pipScale = 0.0001; }
+
+            let price = basePrice;
+            let trendBias = 0.00005 * (pipScale / 0.0001);
+
+            supportLevels = [
+                price - (30 * pipScale),
+                price - (70 * pipScale)
+            ];
+            resistanceLevels = [
+                price + (35 * pipScale),
+                price + (75 * pipScale)
+            ];
+
+            const now = Date.now();
+            let periodMs = 5 * 60 * 1000;
+            if (timeframe === '1m') periodMs = 1 * 60 * 1000;
+            else if (timeframe === '5m') periodMs = 5 * 60 * 1000;
+            else if (timeframe === '15m') periodMs = 15 * 60 * 1000;
+            else if (timeframe === '1h') periodMs = 60 * 60 * 1000;
+
+            for (let i = maxCandles; i > 0; i--) {
+                const open = price;
+                const volatility = (Math.random() - 0.48) * (15 * pipScale);
+                let close = open + volatility + trendBias;
+                
+                const maxR = Math.min(...resistanceLevels);
+                const minS = Math.max(...supportLevels);
+                if (close >= maxR) close -= (5 * pipScale);
+                if (close <= minS) close -= (5 * pipScale);
+
+                const high = Math.max(open, close) + Math.random() * (6 * pipScale);
+                const low = Math.min(open, close) - Math.random() * (6 * pipScale);
+
+                candles.push({
+                    time: now - (i * periodMs),
+                    open: parseFloat(open.toFixed(5)),
+                    high: parseFloat(high.toFixed(5)),
+                    low: parseFloat(low.toFixed(5)),
+                    close: parseFloat(close.toFixed(5))
+                });
+
+                price = close;
+            }
+
+            recalculateIndicators();
+        }
+
+        function recalculateIndicators() {
+            if (candles.length === 0) return;
+
+            const closePrices = candles.map(c => c.close);
+            ema20 = calculateEMA(closePrices, 20);
+            ema50 = calculateEMA(closePrices, 50);
+            rsiValues = calculateRSI(closePrices, 14);
+
+            const lastEma20 = ema20[ema20.length - 1];
+            const lastEma50 = ema50[ema50.length - 1];
+            const prevEma20 = ema20[ema20.length - 5] || lastEma20;
+
+            if (lastEma20 > lastEma50 && lastEma20 > prevEma20) {
+                currentTrend = 'UPTREND';
+            } else if (lastEma20 < lastEma50 && lastEma20 < prevEma20) {
+                currentTrend = 'DOWNTREND';
+            } else {
+                currentTrend = 'SIDEWAYS';
+            }
+
+            detectKeySNRLevels();
+            evaluateAutoEntryRules();
+            updateUIIndicatorsDisplay();
+            drawMainChart();
+            drawRSIChart();
+        }
+
+        function calculateEMA(prices, period) {
+            const k = 2 / (period + 1);
+            let emaArray = [prices[0]];
+            for (let i = 1; i < prices.length; i++) {
+                const ema = prices[i] * k + emaArray[i - 1] * (1 - k);
+                emaArray.push(ema);
+            }
+            return emaArray;
+        }
+
+        function calculateRSI(prices, period = 14) {
+            let rsi = new Array(prices.length).fill(50);
+            if (prices.length <= period) return rsi;
+
+            let gains = 0;
+            let losses = 0;
+
+            for (let i = 1; i <= period; i++) {
+                const diff = prices[i] - prices[i - 1];
+                if (diff >= 0) gains += diff;
+                else losses -= diff;
+            }
+
+            let avgGain = gains / period;
+            let avgLoss = losses / period;
+
+            const firstRs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+            rsi[period] = 100 - (100 / (1 + firstRs));
+
+            for (let i = period + 1; i < prices.length; i++) {
+                const diff = prices[i] - prices[i - 1];
+                if (diff >= 0) {
+                    avgGain = (avgGain * (period - 1) + diff) / period;
+                    avgLoss = (avgLoss * (period - 1)) / period;
+                } else {
+                    avgGain = (avgGain * (period - 1)) / period;
+                    avgLoss = (avgLoss * (period - 1) - diff) / period;
+                }
+
+                const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+                rsi[i] = 100 - (100 / (1 + rs));
+            }
+
+            // Smoothly backfill earlier values for smooth initial curve rendering
+            for (let i = 0; i < period; i++) {
+                rsi[i] = rsi[period];
+            }
+            return rsi;
+        }
+
+        function detectKeySNRLevels() {
+            if (candles.length < 30) return;
+            let highs = [];
+            let lows = [];
+
+            for (let i = 5; i < candles.length - 5; i++) {
+                const c = candles[i];
+                let isHigh = true;
+                let isLow = true;
+                for (let j = i - 4; j <= i + 4; j++) {
+                    if (j === i) continue;
+                    if (candles[j].high > c.high) isHigh = false;
+                    if (candles[j].low < c.low) isLow = false;
+                }
+                if (isHigh) highs.push(c.high);
+                if (isLow) lows.push(c.low);
+            }
+
+            if (highs.length > 0) {
+                const topR = Math.max(...highs);
+                resistanceLevels[0] = topR;
+                resistanceLevels[1] = topR + (25 * pipScale);
+            }
+            if (lows.length > 0) {
+                const botS = Math.min(...lows);
+                supportLevels[0] = botS;
+                supportLevels[1] = botS - (25 * pipScale);
+            }
+        }
+
+        function evaluateAutoEntryRules() {
+            const currentCandle = candles[candles.length - 1];
+            const currentPrice = currentCandle.close;
+            const currentRSI = rsiValues[rsiValues.length - 1] || 50;
+            const sensitivity = document.getElementById('botSensitivity')?.value || 'BALANCED';
+
+            let snrDistanceTolerance = 8 * pipScale;
+            let rsiBuyThreshold = 42;
+            let rsiSellThreshold = 58;
+
+            if (sensitivity === 'TIGHT') {
+                snrDistanceTolerance = 4 * pipScale;
+                rsiBuyThreshold = 35;
+                rsiSellThreshold = 65;
+            } else if (sensitivity === 'AGGRESSIVE') {
+                snrDistanceTolerance = 15 * pipScale;
+                rsiBuyThreshold = 48;
+                rsiSellThreshold = 52;
+            }
+
+            let nearSupport = supportLevels.some(s => Math.abs(currentPrice - s) <= snrDistanceTolerance);
+            let nearResistance = resistanceLevels.some(r => Math.abs(currentPrice - r) <= snrDistanceTolerance);
+            ruleSNRValid = nearSupport || nearResistance;
+
+            const lastEma20 = ema20[ema20.length - 1];
+            const lastEma50 = ema50[ema50.length - 1];
+            ruleTrendValid = (currentTrend === 'UPTREND' && lastEma20 >= lastEma50) || 
+                             (currentTrend === 'DOWNTREND' && lastEma20 <= lastEma50) ||
+                             (sensitivity === 'AGGRESSIVE');
+
+            ruleRSIValid = (nearSupport && currentRSI <= rsiBuyThreshold) || (nearResistance && currentRSI >= rsiSellThreshold) || (sensitivity === 'AGGRESSIVE');
+
+            if (nearSupport && currentRSI <= rsiBuyThreshold) {
+                currentSignalType = 'BUY';
+            } else if (nearResistance && currentRSI >= rsiSellThreshold) {
+                currentSignalType = 'SELL';
+            } else {
+                currentSignalType = null;
+            }
+
+            const now = Date.now();
+            if (isBotActive && (now - lastScanLogTime > 4000)) {
+                lastScanLogTime = now;
+                if (ruleSNRValid || currentSignalType) {
+                    logMessage(`[BOT SCAN] Signal setup terdeteksi! (SNR: ${ruleSNRValid ? 'VALID' : 'OUT'}, Trend: ${ruleTrendValid ? 'VALID' : 'OUT'}, RSI: ${currentRSI.toFixed(1)})`, 'text-yellow-400');
+                }
+            }
+
+            if (isBotActive && ruleSNRValid && ruleTrendValid && ruleRSIValid && currentSignalType) {
+                const openOnSymbol = activePositions.filter(p => p.symbol === currentSymbol);
+                if (openOnSymbol.length === 0) {
+                    logMessage(`🚀 [AUTO-ENTRY BOT] Syarat 100% Valid! Eksekusi ${currentSignalType} Otomatis...`, 'text-goldAccent font-bold text-xs');
+                    executeTradeOrder(currentSignalType, 'AUTO-BOT');
+                    playTradeBeep(currentSignalType);
+                }
+            }
+        }
+
+        function forceSimulateSNRSetup() {
+            if (candles.length === 0) return;
+            const lastCandle = candles[candles.length - 1];
+            
+            const targetPrice = supportLevels[0] || (lastCandle.close - 10 * pipScale);
+            lastCandle.close = targetPrice;
+            lastCandle.low = targetPrice - (2 * pipScale);
+            
+            if (rsiValues.length > 0) {
+                rsiValues[rsiValues.length - 1] = 32.0;
+            }
+            
+            logMessage(`[SIMULASI BOT] Memaksa pergerakan harga ke Zona Support (${targetPrice.toFixed(5)})...`, 'text-tradeBlue font-bold');
+            recalculateIndicators();
+            
+            if (!isBotActive) {
+                const botToggle = document.getElementById('botToggle');
+                if (botToggle) {
+                    botToggle.checked = true;
+                    botToggle.dispatchEvent(new Event('change'));
+                }
+            }
+        }
+
+        function executeTradeOrder(type, source = 'BOT') {
+            const currentPrice = candles[candles.length - 1].close;
+            const lot = parseFloat(document.getElementById('inputLot')?.value || '0.10');
+            const slPipsInput = parseFloat(document.getElementById('inputSL')?.value || '25');
+            const tpPipsInput = parseFloat(document.getElementById('inputTP')?.value || '50');
+            const slTpMode = document.getElementById('slTpModeSelect')?.value || 'AUTO_SNR';
+
+            let slPrice, tpPrice, slPips, tpPips;
+
+            if (slTpMode === 'AUTO_SNR' && supportLevels.length > 0 && resistanceLevels.length > 0) {
+                const buffer = 6 * pipScale;
+                if (type === 'BUY') {
+                    const lowSupport = Math.min(...supportLevels);
+                    slPrice = lowSupport - buffer;
+                    if (slPrice >= currentPrice) slPrice = currentPrice - (20 * pipScale);
+                    slPips = Math.abs(currentPrice - slPrice) / pipScale;
+                    
+                    const targetResistance = Math.max(...resistanceLevels);
+                    if (targetResistance > currentPrice + (slPips * 1.5 * pipScale)) {
+                        tpPrice = targetResistance;
+                    } else {
+                        tpPrice = currentPrice + (slPips * 2 * pipScale);
+                    }
+                    tpPips = Math.abs(tpPrice - currentPrice) / pipScale;
+                } else {
+                    const highResistance = Math.max(...resistanceLevels);
+                    slPrice = highResistance + buffer;
+                    if (slPrice <= currentPrice) slPrice = currentPrice + (20 * pipScale);
+                    slPips = Math.abs(slPrice - currentPrice) / pipScale;
+
+                    const targetSupport = Math.min(...supportLevels);
+                    if (targetSupport < currentPrice - (slPips * 1.5 * pipScale)) {
+                        tpPrice = targetSupport;
+                    } else {
+                        tpPrice = currentPrice - (slPips * 2 * pipScale);
+                    }
+                    tpPips = Math.abs(currentPrice - tpPrice) / pipScale;
+                }
+            } else {
+                slPips = slPipsInput;
+                tpPips = tpPipsInput;
+                slPrice = type === 'BUY' ? currentPrice - (slPips * pipScale) : currentPrice + (slPips * pipScale);
+                tpPrice = type === 'BUY' ? currentPrice + (tpPips * pipScale) : currentPrice - (tpPips * pipScale);
+            }
+
+            const trade = {
+                id: 'TRD-' + Math.floor(1000 + Math.random() * 9000),
+                symbol: currentSymbol,
+                type: type,
+                entryPrice: currentPrice,
+                sl: slPrice,
+                tp: tpPrice,
+                slPips: slPips.toFixed(1),
+                tpPips: tpPips.toFixed(1),
+                lot: lot,
+                openTime: new Date().toLocaleTimeString(),
+                source: `${source} (${activeBroker})`,
+                currentPnL: 0
+            };
+
+            activePositions.push(trade);
+            executedSignals.push({
+                index: candles.length - 1,
+                price: currentPrice,
+                type: type,
+                time: trade.openTime
+            });
+
+            logMessage(`[${source} ORDER - ${activeBroker}] ${type} ${lot} Lot @ ${currentPrice.toFixed(5)} | Auto SL: ${slPrice.toFixed(5)} (${slPips.toFixed(0)}p) TP: ${tpPrice.toFixed(5)} (${tpPips.toFixed(0)}p)`, type === 'BUY' ? 'text-tradeGreen font-bold' : 'text-tradeRed font-bold');
+
+            if (activeBroker === 'WEBHOOK' && brokerCredentials.webhook.url) {
+                sendTradeWebhook(trade);
+            }
+
+            renderActivePositions();
+            drawMainChart();
+        }
+
+        function updatePositionsAndPnL() {
+            if (activePositions.length === 0) return;
+            const currentPrice = candles[candles.length - 1].close;
+            const isTrailingActive = document.getElementById('autoTrailingStop')?.checked;
+            let remainingPositions = [];
+
+            activePositions.forEach(trade => {
+                let pnlPips = trade.type === 'BUY' ? (currentPrice - trade.entryPrice) / pipScale : (trade.entryPrice - currentPrice) / pipScale;
+                let dollarPnL = pnlPips * trade.lot * 10;
+
+                if (isTrailingActive && pnlPips >= 15) {
+                    if (trade.type === 'BUY') {
+                        const newSL = currentPrice - (10 * pipScale);
+                        if (newSL > trade.sl) {
+                            trade.sl = newSL;
+                            logMessage(`[TRAILING STOP] Trade ${trade.id} SL dinaikkan ke ${newSL.toFixed(5)} (Profit Terkunci!)`, 'text-tradeBlue font-semibold');
+                        }
+                    } else {
+                        const newSL = currentPrice + (10 * pipScale);
+                        if (newSL < trade.sl) {
+                            trade.sl = newSL;
+                            logMessage(`[TRAILING STOP] Trade ${trade.id} SL diturunkan ke ${newSL.toFixed(5)} (Profit Terkunci!)`, 'text-tradeBlue font-semibold');
+                        }
+                    }
+                }
+
+                let isTP = trade.type === 'BUY' ? currentPrice >= trade.tp : currentPrice <= trade.tp;
+                let isSL = trade.type === 'BUY' ? currentPrice <= trade.sl : currentPrice >= trade.sl;
+
+                if (isTP) {
+                    accountBalance += dollarPnL;
+                    logMessage(`[AUTO TP HIT 🎯] Trade ${trade.id} (${trade.type}) WIN +$${dollarPnL.toFixed(2)}`, 'text-tradeGreen font-bold');
+                } else if (isSL) {
+                    accountBalance += dollarPnL;
+                    logMessage(`[AUTO SL HIT 🛑] Trade ${trade.id} (${trade.type}) ${dollarPnL >= 0 ? 'Win' : 'Loss'} ${dollarPnL >= 0 ? '+' : ''}$${dollarPnL.toFixed(2)}`, dollarPnL >= 0 ? 'text-tradeGreen font-bold' : 'text-tradeRed font-bold');
+                } else {
+                    trade.currentPnL = dollarPnL;
+                    remainingPositions.push(trade);
+                }
+            });
+
+            activePositions = remainingPositions;
+            const accElem = document.getElementById('accountBalance');
+            if (accElem) {
+                accElem.innerText = `$${accountBalance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            }
+            renderActivePositions();
+        }
+
+        window.closeTradeManual = function(tradeId) {
+            const currentPrice = candles[candles.length - 1].close;
+            const tradeIndex = activePositions.findIndex(p => p.id === tradeId);
+            if (tradeIndex !== -1) {
+                const trade = activePositions[tradeIndex];
+                let pnlPips = trade.type === 'BUY' ? (currentPrice - trade.entryPrice) / pipScale : (trade.entryPrice - currentPrice) / pipScale;
+                let dollarPnL = pnlPips * trade.lot * 10;
+                accountBalance += dollarPnL;
+                
+                logMessage(`[MANUAL CLOSE] Trade ${trade.id} Ditutup @ ${currentPrice.toFixed(5)} (${dollarPnL >= 0 ? '+' : ''}$${dollarPnL.toFixed(2)})`, dollarPnL >= 0 ? 'text-tradeGreen' : 'text-tradeRed');
+                activePositions.splice(tradeIndex, 1);
+                const accElem = document.getElementById('accountBalance');
+                if (accElem) {
+                    accElem.innerText = `$${accountBalance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                }
+                renderActivePositions();
+            }
+        }
+
+        function renderActivePositions() {
+            const container = document.getElementById('positionsList');
+            const tradesCountElem = document.getElementById('activeTradesCount');
+            const mobilePosTabLabel = document.getElementById('mobilePosTabLabel');
+
+            if (tradesCountElem) tradesCountElem.innerText = `${activePositions.length} Trades`;
+            if (mobilePosTabLabel) mobilePosTabLabel.innerText = `Posisi (${activePositions.length})`;
+            
+            if (!container) return;
+
+            if (activePositions.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-6 text-gray-500 text-xs italic" id="noPositionsMsg">
+                        Belum ada posisi terbuka.<br>Aktifkan Auto Bot atau klik Manual Buy/Sell.
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = '';
+
+            activePositions.forEach(trade => {
+                const pnl = trade.currentPnL || 0;
+                const isPositive = pnl >= 0;
+                const item = document.createElement('div');
+                item.className = 'bg-darkBg border border-cardBorder rounded-lg p-2 text-xs flex flex-col justify-between space-y-1.5';
+                item.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-1.5">
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${trade.type === 'BUY' ? 'bg-tradeGreen/20 text-tradeGreen' : 'bg-tradeRed/20 text-tradeRed'}">${trade.type}</span>
+                            <span class="font-bold text-white text-[11px]">${trade.symbol}</span>
+                            <span class="text-[9px] text-gray-400">(${trade.lot}L)</span>
+                        </div>
+                        <span class="font-mono font-bold text-[11px] ${isPositive ? 'text-tradeGreen' : 'text-tradeRed'}">${isPositive ? '+' : ''}$${pnl.toFixed(2)}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-[10px] text-gray-400">
+                        <span>E: <strong class="text-gray-200">${trade.entryPrice.toFixed(4)}</strong></span>
+                        <span>TP: <strong class="text-tradeGreen">${trade.tp.toFixed(4)}</strong></span>
+                        <span>SL: <strong class="text-tradeRed">${trade.sl.toFixed(4)}</strong></span>
+                    </div>
+                    <div class="flex justify-between items-center pt-1 border-t border-cardBorder/40">
+                        <span class="text-[9px] text-gray-500">${trade.id}</span>
+                        <button onclick="window.closeTradeManual('${trade.id}')" class="px-2 py-0.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 text-[9px] transition">Tutup</button>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function updateUIIndicatorsDisplay() {
+            if (candles.length === 0) return;
+            const lastCandle = candles[candles.length - 1];
+            const lastPrice = lastCandle.close;
+            const lastRSI = rsiValues[rsiValues.length - 1] || 50;
+
+            const lastPriceElem = document.getElementById('lastPriceDisplay');
+            if (lastPriceElem) lastPriceElem.innerText = lastPrice.toFixed(currentSymbol.includes('USD') && !currentSymbol.includes('XAU') && !currentSymbol.includes('BTC') ? 5 : 2);
+
+            const trendElem = document.getElementById('trendDisplay');
+            if (trendElem) {
+                trendElem.innerText = currentTrend;
+                trendElem.className = `font-semibold ${currentTrend === 'UPTREND' ? 'text-tradeGreen' : currentTrend === 'DOWNTREND' ? 'text-tradeRed' : 'text-yellow-500'}`;
+            }
+
+            const rsiElem = document.getElementById('rsiDisplay');
+            if (rsiElem) rsiElem.innerText = lastRSI.toFixed(1);
+
+            const snrElem = document.getElementById('snrDisplay');
+            if (snrElem && supportLevels.length > 0 && resistanceLevels.length > 0) {
+                snrElem.innerText = `S: ${supportLevels[0].toFixed(2)} | R: ${resistanceLevels[0].toFixed(2)}`;
+            }
+
+            const updateChecklistUI = (badgeId, iconId, isValid) => {
+                const badge = document.getElementById(badgeId);
+                const icon = document.getElementById(iconId);
+                if (badge && icon) {
+                    if (isValid) {
+                        badge.className = 'px-1.5 py-0.5 text-[9px] rounded bg-tradeGreen/20 text-tradeGreen font-medium';
+                        badge.innerText = 'Valid';
+                        icon.className = 'fa-solid fa-circle-check text-tradeGreen text-xs mt-0.5';
+                    } else {
+                        badge.className = 'px-1.5 py-0.5 text-[9px] rounded bg-red-500/20 text-red-400 font-medium';
+                        badge.innerText = 'Belum';
+                        icon.className = 'fa-solid fa-circle-xmark text-tradeRed text-xs mt-0.5';
+                    }
+                }
+            };
+
+            updateChecklistUI('ruleBadgeSNR', 'ruleIconSNR', ruleSNRValid);
+            updateChecklistUI('ruleBadgeTrend', 'ruleIconTrend', ruleTrendValid);
+            updateChecklistUI('ruleBadgeRSI', 'ruleIconRSI', ruleRSIValid);
+
+            updateChecklistUI('mobileRuleBadgeSNR', 'mobileRuleIconSNR', ruleSNRValid);
+            updateChecklistUI('mobileRuleBadgeTrend', 'mobileRuleIconTrend', ruleTrendValid);
+            updateChecklistUI('mobileRuleBadgeRSI', 'mobileRuleIconRSI', ruleRSIValid);
+        }
+
+        window.handleConnectBroker = function() {
+            const brokerType = document.getElementById('modalBrokerType')?.value || 'SIMULATOR';
+            activeBroker = brokerType;
+
+            stopLiveStreams();
+
+            if (brokerType === 'SIMULATOR') {
+                updateBrokerUIStatus(false, 'API');
+                logMessage('[BROKER CONNECT] Switched to Internal Paper Trading Simulator', 'text-tradeBlue');
+                document.getElementById('brokerModal')?.classList.add('hidden');
+                return;
+            }
+
+            if (brokerType === 'BINANCE') {
+                brokerCredentials.binance.apiKey = document.getElementById('binanceApiKey')?.value || '';
+                brokerCredentials.binance.apiSecret = document.getElementById('binanceApiSecret')?.value || '';
+                brokerCredentials.binance.env = document.getElementById('binanceEnv')?.value || 'spot';
+                connectBinanceWebSocket();
+            } else if (brokerType === 'DERIV') {
+                brokerCredentials.deriv.appId = document.getElementById('derivAppId')?.value || '1089';
+                brokerCredentials.deriv.token = document.getElementById('derivToken')?.value || '';
+                connectDerivWebSocket();
+            } else if (brokerType === 'WEBHOOK') {
+                brokerCredentials.webhook.url = document.getElementById('webhookUrl')?.value || '';
+                brokerCredentials.webhook.secret = document.getElementById('webhookSecret')?.value || '';
+                updateBrokerUIStatus(true, 'MT4 Webhook');
+                logMessage(`[WEBHOOK READY] Configured endpoint ${brokerCredentials.webhook.url}`, 'text-tradeGreen');
+            }
+
+            const modeSelect = document.getElementById('executionModeSelect');
+            if (modeSelect) modeSelect.value = brokerType;
+            document.getElementById('brokerModal')?.classList.add('hidden');
+        }
+
+        function connectBinanceWebSocket() {
+            try {
+                const pairMap = {
+                    'BTCUSD': 'btcusdt',
+                    'EURUSD': 'eurusdt',
+                    'XAUUSD': 'paxgusdt',
+                    'GBPUSD': 'gbpusdt'
+                };
+                const symbolStream = pairMap[currentSymbol] || 'btcusdt';
+                const intervalMap = { '1m': '1m', '5m': '5m', '15m': '15m', '1h': '1h' };
+                const interval = intervalMap[timeframe] || '5m';
+
+                const wsUrl = `wss://stream.binance.com:9443/ws/${symbolStream}@kline_${interval}`;
+                binanceWs = new WebSocket(wsUrl);
+
+                binanceWs.onopen = () => {
+                    isLiveStreamActive = true;
+                    updateBrokerUIStatus(true, 'Binance LIVE');
+                    logMessage(`[BINANCE WEBSOCKET] Connected stream ${symbolStream.toUpperCase()} @ ${interval}`, 'text-tradeGreen font-bold');
+                };
+
+                binanceWs.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    if (data.k) {
+                        const k = data.k;
+                        const lastCandle = candles[candles.length - 1];
+                        if (lastCandle) {
+                            lastCandle.high = Math.max(lastCandle.high, parseFloat(k.c));
+                            lastCandle.low = Math.min(lastCandle.low, parseFloat(k.c));
+                            lastCandle.close = parseFloat(k.c);
+                        }
+                        if (k.x) {
+                            candles.shift();
+                            candles.push({
+                                time: k.t,
+                                open: parseFloat(k.o),
+                                high: parseFloat(k.h),
+                                low: parseFloat(k.l),
+                                close: parseFloat(k.c)
+                            });
+                        }
+                        recalculateIndicators();
+                        updatePositionsAndPnL();
+                    }
+                };
+
+                binanceWs.onerror = () => {
+                    logMessage('[BINANCE WS ERROR] Connection failed', 'text-tradeRed');
+                    updateBrokerUIStatus(false, 'Binance Error');
+                };
+            } catch (e) {
+                logMessage(`[BINANCE WS EXCEPTION] ${e.message}`, 'text-tradeRed');
+            }
+        }
+
+        function connectDerivWebSocket() {
+            try {
+                const appId = brokerCredentials.deriv.appId || '1089';
+                derivWs = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${appId}`);
+
+                derivWs.onopen = () => {
+                    isLiveStreamActive = true;
+                    updateBrokerUIStatus(true, 'Deriv LIVE');
+                    logMessage('[DERIV WEBSOCKET] Connected to Deriv Stream', 'text-tradeGreen font-bold');
+                    const derivSymbolMap = { 'EURUSD': 'frxEURUSD', 'GBPUSD': 'frxGBPUSD', 'XAUUSD': 'frxXAUUSD', 'BTCUSD': 'cryBTCUSD' };
+                    const symbol = derivSymbolMap[currentSymbol] || 'frxEURUSD';
+                    derivWs.send(JSON.stringify({ ticks: symbol }));
+                };
+
+                derivWs.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    if (data.tick) {
+                        const quote = parseFloat(data.tick.quote);
+                        const lastCandle = candles[candles.length - 1];
+                        if (lastCandle) {
+                            lastCandle.high = Math.max(lastCandle.high, quote);
+                            lastCandle.low = Math.min(lastCandle.low, quote);
+                            lastCandle.close = quote;
+                        }
+                        recalculateIndicators();
+                        updatePositionsAndPnL();
+                    }
+                };
+            } catch (e) {
+                logMessage(`[DERIV WS EXCEPTION] ${e.message}`, 'text-tradeRed');
+            }
+        }
+
+        function sendTradeWebhook(trade) {
+            try {
+                fetch(brokerCredentials.webhook.url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${brokerCredentials.webhook.secret}`
+                    },
+                    body: JSON.stringify(trade)
+                }).then(res => {
+                    logMessage(`[WEBHOOK SENT] Payload delivered status: ${res.status}`, 'text-tradeGreen');
+                }).catch(err => {
+                    logMessage(`[WEBHOOK ERROR] Delivery failed: ${err.message}`, 'text-tradeRed');
+                });
+            } catch (e) { /* webhook fallback */ }
+        }
+
+        function stopLiveStreams() {
+            if (binanceWs) { binanceWs.close(); binanceWs = null; }
+            if (derivWs) { derivWs.close(); derivWs = null; }
+            isLiveStreamActive = false;
+        }
+
+        function restartTickInterval() {
+            if (tickIntervalTimer) clearInterval(tickIntervalTimer);
+            const intervalMs = 1200 / simulationSpeed;
+            tickIntervalTimer = setInterval(() => {
+                if (!isLiveStreamActive) {
+                    tickSimulation();
+                }
+            }, intervalMs);
+        }
+
+        function tickSimulation() {
+            if (candles.length === 0) return;
+            const lastCandle = candles[candles.length - 1];
+            const change = (Math.random() - 0.495) * (4 * pipScale);
+            
+            lastCandle.close = parseFloat((lastCandle.close + change).toFixed(5));
+            lastCandle.high = Math.max(lastCandle.high, lastCandle.close);
+            lastCandle.low = Math.min(lastCandle.low, lastCandle.close);
+
+            // Periodically create new candle
+            if (Math.random() < 0.12) {
+                candles.shift();
+                candles.push({
+                    time: Date.now(),
+                    open: lastCandle.close,
+                    high: lastCandle.close,
+                    low: lastCandle.close,
+                    close: lastCandle.close
+                });
+            }
+
+            recalculateIndicators();
+            updatePositionsAndPnL();
+        }
+
+        function initEventListeners() {
+            const brokerModal = document.getElementById('brokerModal');
+            const balanceModal = document.getElementById('balanceModal');
+
+            // Mobile Tab Switching
+            const mobileTabs = document.querySelectorAll('.mobile-tab-btn');
+            mobileTabs.forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    const targetTabId = e.currentTarget.getAttribute('data-tab');
+                    mobileTabs.forEach(t => t.classList.remove('active'));
+                    e.currentTarget.classList.add('active');
+
+                    document.querySelectorAll('.mobile-tab-content').forEach(content => {
+                        if (window.innerWidth < 768) {
+                            if (content.id === targetTabId) {
+                                content.classList.remove('hidden');
+                            } else {
+                                content.classList.add('hidden');
+                            }
+                        }
+                    });
+                });
+            });
+
+            // Mobile Quick Trade Buttons
+            document.getElementById('btnMobileBuy')?.addEventListener('click', () => executeTradeOrder('BUY', 'MANUAL'));
+            document.getElementById('btnMobileSell')?.addEventListener('click', () => executeTradeOrder('SELL', 'MANUAL'));
+
+            // Bot Toggle Switch
+            const botToggle = document.getElementById('botToggle');
+            const botStatusDot = document.getElementById('botStatusDot');
+            const botScanBadge = document.getElementById('botScanBadge');
+            const mobileBotScanBadge = document.getElementById('mobileBotScanBadge');
+
+            botToggle?.addEventListener('change', (e) => {
+                isBotActive = e.target.checked;
+                if (isBotActive) {
+                    if (botStatusDot) botStatusDot.className = 'w-2 h-2 rounded-full bg-tradeGreen pulse-green';
+                    const activeBadgeStyle = 'text-[9px] px-1.5 py-0.5 rounded bg-tradeGreen/20 text-tradeGreen border border-tradeGreen/30 font-semibold animate-pulse';
+                    if (botScanBadge) {
+                        botScanBadge.className = activeBadgeStyle;
+                        botScanBadge.innerText = 'Bot SCANNING';
+                    }
+                    if (mobileBotScanBadge) {
+                        mobileBotScanBadge.className = activeBadgeStyle;
+                        mobileBotScanBadge.innerText = 'Bot SCANNING';
+                    }
+                    logMessage(`[BOT ACTIVE] Auto-Entry Engine Aktif & Memindai Sinyal Pasar...`, 'text-tradeGreen font-bold');
+                } else {
+                    if (botStatusDot) botStatusDot.className = 'w-2 h-2 rounded-full bg-red-500';
+                    const offBadgeStyle = 'text-[9px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400';
+                    if (botScanBadge) {
+                        botScanBadge.className = offBadgeStyle;
+                        botScanBadge.innerText = 'Bot OFF';
+                    }
+                    if (mobileBotScanBadge) {
+                        mobileBotScanBadge.className = offBadgeStyle;
+                        mobileBotScanBadge.innerText = 'Bot OFF';
+                    }
+                    logMessage('[BOT PAUSED] Auto-Entry Engine Dinonaktifkan.', 'text-tradeRed');
+                }
+            });
+
+            // Symbol Select
+            document.getElementById('symbolSelect')?.addEventListener('change', (e) => {
+                currentSymbol = e.target.value;
+                generateInitialCandles();
+                logMessage(`[SYMBOL CHANGED] Memuat chart ${currentSymbol}`, 'text-tradeBlue');
+            });
+
+            // Timeframe Select Buttons
+            document.querySelectorAll('.tf-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const selectedTf = e.currentTarget.getAttribute('data-tf');
+                    if (selectedTf === timeframe) return;
+                    timeframe = selectedTf;
+                    
+                    document.querySelectorAll('.tf-btn').forEach(b => {
+                        b.className = 'tf-btn px-1.5 py-0.5 rounded hover:bg-cardBorder transition text-gray-300';
+                    });
+                    e.currentTarget.className = 'tf-btn px-1.5 py-0.5 rounded bg-tradeBlue text-white font-semibold';
+                    
+                    generateInitialCandles();
+                    if (activeBroker === 'BINANCE' && isLiveStreamActive) {
+                        connectBinanceWebSocket();
+                    }
+                    logMessage(`[TIMEFRAME CHANGED] Switched to ${timeframe}`, 'text-tradeBlue');
+                });
+            });
+
+            // Broker API Modal Triggers
+            document.getElementById('btnBrokerSettings')?.addEventListener('click', () => {
+                brokerModal?.classList.remove('hidden');
+            });
+
+            document.getElementById('btnCloseModal')?.addEventListener('click', () => {
+                brokerModal?.classList.add('hidden');
+            });
+
+            const modalBrokerType = document.getElementById('modalBrokerType');
+            modalBrokerType?.addEventListener('change', (e) => {
+                const val = e.target.value;
+                document.getElementById('fieldsBinance')?.classList.toggle('hidden', val !== 'BINANCE');
+                document.getElementById('fieldsDeriv')?.classList.toggle('hidden', val !== 'DERIV');
+                document.getElementById('fieldsWebhook')?.classList.toggle('hidden', val !== 'WEBHOOK');
+            });
+
+            document.getElementById('btnConnectBroker')?.addEventListener('click', window.handleConnectBroker);
+            document.getElementById('btnDisconnectBroker')?.addEventListener('click', () => {
+                stopLiveStreams();
+                activeBroker = 'SIMULATOR';
+                const execMode = document.getElementById('executionModeSelect');
+                if (execMode) execMode.value = 'SIMULATOR';
+                updateBrokerUIStatus(false, 'Disconnected');
+                brokerModal?.classList.add('hidden');
+            });
+
+            // Balance Edit Modal Triggers
+            document.getElementById('btnEditBalance')?.addEventListener('click', () => {
+                balanceModal?.classList.remove('hidden');
+            });
+
+            document.getElementById('btnCloseBalanceModal')?.addEventListener('click', () => {
+                balanceModal?.classList.add('hidden');
+            });
+
+            document.getElementById('btnCancelBalance')?.addEventListener('click', () => {
+                balanceModal?.classList.add('hidden');
+            });
+
+            document.querySelectorAll('.btn-preset-bal').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const amt = parseFloat(e.currentTarget.getAttribute('data-amount')) || 10000;
+                    accountBalance = amt;
+                    const accElem = document.getElementById('accountBalance');
+                    if (accElem) accElem.innerText = `$${accountBalance.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+                    logMessage(`[SALDO SIMULASI] Nominal diatur ke $${accountBalance.toLocaleString()}`, 'text-tradeGreen');
+                    balanceModal?.classList.add('hidden');
+                });
+            });
+
+            document.getElementById('btnSaveBalance')?.addEventListener('click', () => {
+                const customVal = parseFloat(document.getElementById('inputCustomBalance')?.value);
+                if (customVal && customVal > 0) {
+                    accountBalance = customVal;
+                    const accElem = document.getElementById('accountBalance');
+                    if (accElem) accElem.innerText = `$${accountBalance.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+                    logMessage(`[SALDO SIMULASI] Nominal custom diatur ke $${accountBalance.toLocaleString()}`, 'text-tradeGreen');
+                }
+                balanceModal?.classList.add('hidden');
+            });
+
+            // Controls & Execution Buttons
+        document.getElementById('btnSimulateSetup')?.addEventListener('click', forceSimulateSNRSetup);
+
+        // Fullscreen Toggle Handler
+        document.getElementById('btnFullscreen')?.addEventListener('click', () => {
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                const docEl = document.documentElement;
+                if (docEl.requestFullscreen) docEl.requestFullscreen();
+                else if (docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen();
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+            }
+        });
+
+        const updateFSState = () => {
+            const icon = document.getElementById('fullscreenIcon');
+            const isFS = document.fullscreenElement || document.webkitFullscreenElement;
+            if (icon) {
+                icon.className = isFS ? 'fa-solid fa-compress text-tradeRed text-[10px]' : 'fa-solid fa-expand text-tradeGreen text-[10px]';
+            }
+            setTimeout(window.resizeCanvases, 150);
+        };
+
+        document.addEventListener('fullscreenchange', updateFSState);
+        document.addEventListener('webkitfullscreenchange', updateFSState);
+
+        document.getElementById('btnSpeed')?.addEventListener('click', () => {
+                if (simulationSpeed === 1) simulationSpeed = 2;
+                else if (simulationSpeed === 2) simulationSpeed = 5;
+                else simulationSpeed = 1;
+                const spdLabel = document.getElementById('speedLabel');
+                if (spdLabel) spdLabel.innerText = `${simulationSpeed}x`;
+                restartTickInterval();
+            });
+
+            document.getElementById('btnManualBuy')?.addEventListener('click', () => executeTradeOrder('BUY', 'MANUAL'));
+            document.getElementById('btnManualSell')?.addEventListener('click', () => executeTradeOrder('SELL', 'MANUAL'));
+            document.getElementById('btnClearLogs')?.addEventListener('click', () => {
+                const logs = document.getElementById('executionLogs');
+                if (logs) logs.innerHTML = '<div class="text-gray-500">[System] Logs dibersihkan.</div>';
+            });
+
+            ['showSNR', 'showEMA', 'showSignals'].forEach(id => {
+                document.getElementById(id)?.addEventListener('change', () => {
+                    drawMainChart();
+                    drawRSIChart();
+                });
+            });
+
+            // Responsive Layout Handler
+            window.addEventListener('resize', () => {
+                window.resizeCanvases();
+                if (window.innerWidth >= 768) {
+                    document.querySelectorAll('.mobile-tab-content').forEach(c => c.classList.remove('hidden'));
+                } else {
+                    const activeTab = document.querySelector('.mobile-tab-btn.active')?.getAttribute('data-tab') || 'tab-rules';
+                    document.querySelectorAll('.mobile-tab-content').forEach(c => {
+                        if (c.id === activeTab) c.classList.remove('hidden');
+                        else c.classList.add('hidden');
+                    });
+                }
+            });
+        }
+
+        window.onload = function() {
+            mainCanvas = document.getElementById('mainChart');
+            mainCtx = mainCanvas ? mainCanvas.getContext('2d') : null;
+            rsiCanvas = document.getElementById('rsiChart');
+            rsiCtx = rsiCanvas ? rsiCanvas.getContext('2d') : null;
+
+            generateInitialCandles();
+            initEventListeners();
+            window.resizeCanvases();
+            restartTickInterval();
+            logMessage('[SYSTEM READY] ApexTrader Analysis & Auto-Entry Engine Aktif.');
+        };
+    </script>
+</body>
+</html>
